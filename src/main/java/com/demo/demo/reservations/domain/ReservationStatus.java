@@ -1,4 +1,4 @@
-package com.demo.demo;
+package com.demo.demo.reservations.domain;
 
 public enum ReservationStatus {
     PENDING,

@@ -1,17 +1,19 @@
-package com.demo.demo;
+package com.demo.demo.reservations.api;
 
+import com.demo.demo.reservations.domain.Reservation;
+import com.demo.demo.reservations.db.ReservationEntity;
+import com.demo.demo.reservations.db.ReservationRepository;
+import com.demo.demo.reservations.domain.ReservationStatus;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class ReservationService {
-    private ReservationRepository repository;
+    private final ReservationRepository repository;
 
     public ReservationService(ReservationRepository repository) {
         this.repository = repository;
@@ -27,19 +29,20 @@ public class ReservationService {
     }
 
     public Reservation createReservation(Reservation reservation) {
-        if (reservation.id() != null) {
-            throw new IllegalArgumentException("Id should be empty");
-        }
         if (reservation.status() != null) {
             throw new IllegalArgumentException("Status should be empty");
         }
-        var saved = repository.save(toEntity(reservation));
+        checkReservationDatesValid(reservation);
+        ReservationEntity entity = toEntity(reservation);
+        entity.setStatus(ReservationStatus.PENDING);
+        var saved = repository.save(entity);
         return toDomain(saved);
     }
 
 
     public Reservation updateReservation(Reservation reservation) {
         checkReservationExists(reservation.id());
+        checkReservationDatesValid(reservation);
         var oldReservation = this.getReservationById(reservation.id());
         if (oldReservation.status() != ReservationStatus.PENDING) {
             throw new IllegalStateException("");
@@ -52,17 +55,27 @@ public class ReservationService {
         repository.deleteById(id);
     }
 
+    @Transactional
     public Reservation approveReservationById(Long id) {
-        Reservation reservation = this.getReservationById(id);
-        ReservationEntity entity = toEntity(reservation);
-        entity.setStatus(ReservationStatus.APPROVED);
-        ReservationEntity result = repository.save(entity);
-        return toDomain(result);
+        repository.setStatus(id, ReservationStatus.APPROVED);
+        return getReservationById(id);
+    }
+
+    @Transactional
+    public Reservation cancelReservationById(Long id) {
+        repository.setStatus(id, ReservationStatus.CANCELLED);
+        return getReservationById(id);
     }
 
     private void checkReservationExists(Long id) {
         if (!repository.existsById(id)) {
             throw new NoSuchElementException("");
+        }
+    }
+
+    private void checkReservationDatesValid(Reservation r) {
+        if (!r.endDate().isAfter(r.startDate())) {
+            throw new IllegalArgumentException("End Date has to be valid");
         }
     }
 
@@ -73,4 +86,5 @@ public class ReservationService {
     private Reservation toDomain(ReservationEntity it) {
         return new Reservation(it.getId(), it.getUserId(), it.getRoomId(), it.getStartDate(), it.getEndDate(), it.getStatus());
     }
+
 }

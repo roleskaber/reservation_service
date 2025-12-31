@@ -1,5 +1,7 @@
-package com.demo.demo;
+package com.demo.demo.reservations.api;
 
+import com.demo.demo.reservations.domain.Reservation;
+import jakarta.validation.Valid;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
@@ -22,8 +24,8 @@ public class ReservationController {
 
     @PostMapping("/add")
     public ResponseEntity<Reservation> createReservation(
-            @RequestBody Reservation reservation
-    ) {
+            @RequestBody @Valid Reservation reservation
+            ) {
         logger.info("Started creating reservation");
         var saved_reservation = reservationService.createReservation(reservation);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -47,7 +49,7 @@ public class ReservationController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Reservation> deleteReservationById(
-            @PathVariable("id") Long id
+            @PathVariable Long id
     ) {
         reservationService.deleteReservation(id);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
@@ -56,18 +58,26 @@ public class ReservationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Reservation> getReservationById(
-            @PathVariable("id") Long id
+            @PathVariable Long id
     ) {
         logger.info("GET /reservation/{}", id);
         return ResponseEntity.ok(reservationService.getReservationById(id));
     }
 
-    @PostMapping("/{id}/accept")
+    @PostMapping("/{id}/approve")
     public ResponseEntity<Reservation> approveReservationById(
-            @PathVariable("id") Long id
+            @PathVariable Long id
     ) {
         logger.info("POST /reservation/{}/approve", id);
         return ResponseEntity.ok(reservationService.approveReservationById(id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Reservation> cancelReservationById(
+            @PathVariable Long id
+    ) {
+        logger.info("POST /reservation/{}/cancel", id);
+        return ResponseEntity.ok(reservationService.cancelReservationById(id));
     }
 
 }
