@@ -25,10 +25,9 @@ public class ReservationController {
             @RequestBody Reservation reservation
     ) {
         logger.info("Started creating reservation");
-        Reservation result = reservationService.createReservation(reservation);
+        var saved_reservation = reservationService.createReservation(reservation);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .header("User-Agent", "ReservationController")
-                .body(result);
+                .body(saved_reservation);
     }
 
     @GetMapping("/all")
@@ -62,4 +61,13 @@ public class ReservationController {
         logger.info("GET /reservation/{}", id);
         return ResponseEntity.ok(reservationService.getReservationById(id));
     }
+
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<Reservation> approveReservationById(
+            @PathVariable("id") Long id
+    ) {
+        logger.info("POST /reservation/{}/approve", id);
+        return ResponseEntity.ok(reservationService.approveReservationById(id));
+    }
+
 }

@@ -1,6 +1,6 @@
 package com.demo.demo;
 
-import org.jspecify.annotations.Nullable;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -11,69 +11,66 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class ReservationService {
+    private ReservationRepository repository;
 
-    private final Map<Long, Reservation> reservationMap;
-    private AtomicLong idCounter = new AtomicLong(0L);
-
-    public ReservationService() {
-        this.reservationMap = new HashMap<>();
+    public ReservationService(ReservationRepository repository) {
+        this.repository = repository;
     }
 
     public Reservation getReservationById(Long id) {
-        if (!reservationMap.containsKey(id)) {
-            throw new NoSuchElementException("");
-        }
-        return reservationMap.get(id);
+        ReservationEntity find = repository.findById(id).orElseThrow(() -> new EntityNotFoundException("Entity with id {} not found"));
+        return toDomain(find);
     }
 
     public List<Reservation> getAllReservations() {
-        return reservationMap.values().stream().toList();
+        return repository.findAll().stream().map(this::toDomain).toList();
     }
 
-    public Reservation createReservation(
-            Reservation reservation
-    ) {
+    public Reservation createReservation(Reservation reservation) {
         if (reservation.id() != null) {
             throw new IllegalArgumentException("Id should be empty");
         }
         if (reservation.status() != null) {
             throw new IllegalArgumentException("Status should be empty");
         }
-        var newReservation = new Reservation(
-                idCounter.incrementAndGet(),
-                reservation.userId(),
-                reservation.roomId(),
-                reservation.startDate(),
-                reservation.endDate(),
-                ReservationStatus.PENDING
-        );
-        reservationMap.put(newReservation.id(), newReservation);
-        return newReservation;
+        var saved = repository.save(toEntity(reservation));
+        return toDomain(saved);
     }
 
 
-    public Reservation updateReservation(
-            Reservation reservation
-    ) {
-        if (!reservationMap.containsKey(reservation.id())) {
-            throw new NoSuchElementException("");
-        }
-        var oldReservation = reservationMap.get(reservation.id());
+    public Reservation updateReservation(Reservation reservation) {
+        checkReservationExists(reservation.id());
+        var oldReservation = this.getReservationById(reservation.id());
         if (oldReservation.status() != ReservationStatus.PENDING) {
             throw new IllegalStateException("");
         }
-        reservationMap.put(reservation.id(), reservation);
-        return reservation;
+        return toDomain(repository.save(toEntity(reservation)));
     }
 
-    public void deleteReservation(
-            Long id
-    ) {
-        if (!reservationMap.containsKey(id)) {
+    public void deleteReservation(Long id) {
+        checkReservationExists(id);
+        repository.deleteById(id);
+    }
+
+    public Reservation approveReservationById(Long id) {
+        Reservation reservation = this.getReservationById(id);
+        ReservationEntity entity = toEntity(reservation);
+        entity.setStatus(ReservationStatus.APPROVED);
+        ReservationEntity result = repository.save(entity);
+        return toDomain(result);
+    }
+
+    private void checkReservationExists(Long id) {
+        if (!repository.existsById(id)) {
             throw new NoSuchElementException("");
         }
-        reservationMap.remove(id);
     }
 
+    private ReservationEntity toEntity(Reservation re) {
+        return new ReservationEntity(null, re.userId(), re.roomId(), re.startDate(), re.endDate(), re.status());
+    }
 
+    private Reservation toDomain(ReservationEntity it) {
+        return new Reservation(it.getId(), it.getUserId(), it.getRoomId(), it.getStartDate(), it.getEndDate(), it.getStatus());
+    }
 }
